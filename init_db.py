@@ -9,6 +9,12 @@ with app.app_context():
 # init_db.py
 from models import db
 from app import app
+# init_db.py
+
+from app import db
+db.create_all()
+print("Database created.")
+
 
 with app.app_context():
     db.create_all()
