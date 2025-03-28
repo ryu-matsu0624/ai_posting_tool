@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}ログイン{% endblock %}
+
+{% block content %}
+<h2>ログイン</h2>
+
+<form method="POST">
+    {{ form.hidden_tag() }}
+    <p>
+        {{ form.email.label }}<br>
+        {{ form.email(size=32) }}
+    </p>
+    <p>
+        {{ form.password.label }}<br>
+        {{ form.password(size=32) }}
+    </p>
+    <p>{{ form.submit() }}</p>
+</form>
+
+<p>
+    <a href="{{ url_for('signup') }}">🔑 アカウントをお持ちでない方はこちら（新規登録）</a>
+</p>
+
+<p>
+    <a href="{{ url_for('register_site') }}">📋 WordPressサイトを登録する</a>
+</p>
+
+<p>
+    <a href="{{ url_for('site_list') }}">登録サイト一覧を見る</a>
+</p>
+{% endblock %}

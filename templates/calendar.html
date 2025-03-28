@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}📅 投稿カレンダー{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2>📅 投稿カレンダー</h2>
+  <div id="calendar" class="mt-4"></div>
+</div>
+
+<!-- ✅ FullCalendar CSS + JS 読み込み -->
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const calendarEl = document.getElementById('calendar');
+
+    // ✅ Jinja2 経由で Python 側の events を JSON に変換して変数に格納
+    const eventsData = {{ events | tojson | safe }};
+
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+      initialView: 'dayGridMonth',
+      locale: 'ja',
+      height: "auto",
+      headerToolbar: {
+        left: 'prev,next today',
+        center: 'title',
+        right: 'dayGridMonth,timeGridWeek'
+      },
+      events: eventsData
+    });
+
+    calendar.render();
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>📑 投稿ログ</h2>
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>サイト名</th>
+      <th>タイトル</th>
+      <th>状態</th>
+      <th>投稿予定</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for article in articles %}
+    <tr>
+      <td>{{ article.site.site_name }}</td>
+      <td>{{ article.title }}</td>
+      <td>
+        {% if article.status == 'posted' %}
+          ✅ 投稿済み
+        {% else %}
+          ⏳ {{ article.status }}
+        {% endif %}
+      </td>
+      <td>{{ article.scheduled_time.strftime('%Y-%m-%d %H:%M') }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

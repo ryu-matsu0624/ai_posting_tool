@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>✅ 投稿処理完了</h2>
+
+<p>サイト: <strong>{{ site.site_name }}</strong></p>
+<p>URL: <a href="{{ site.url }}" target="_blank">{{ site.url }}</a></p>
+
+<h3>📄 投稿された記事一覧：</h3>
+
+{% if articles %}
+  <ul>
+    {% for article in articles %}
+      <li>
+        <strong>{{ article.title or "タイトル未定" }}</strong>
+        - 状態: 
+        <span class="{{ 'posted' if article.status == 'posted' else 'scheduled' }}">
+          {{ article.status }}
+        </span>
+        - 投稿日時: {{ article.scheduled_time.strftime("%Y/%m/%d %H:%M") }}
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p>投稿された記事がまだありません。</p>
+{% endif %}
+
+<br>
+<a href="{{ url_for('site_list') }}">🔙 登録サイト一覧に戻る</a>
+
+<style>
+  .posted {
+    color: green;
+    font-weight: bold;
+  }
+  .scheduled {
+    color: gray;
+    font-style: italic;
+  }
+</style>
+{% endblock %}

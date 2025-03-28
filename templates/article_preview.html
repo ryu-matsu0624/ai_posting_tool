@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}記事プレビュー{% endblock %}
+{% block content %}
+<h2>📝 記事プレビュー：{{ site.site_name }}</h2>
+
+<p><strong>キーワード：</strong>{{ keyword }}</p>
+<p><strong>タイトル：</strong>{{ title }}</p>
+
+<h3>📄 記事本文</h3>
+<pre style="white-space: pre-wrap;">{{ content }}</pre>
+
+<h3>🖼️ アイキャッチ画像プロンプト</h3>
+<pre>{{ image_prompt }}</pre>
+
+<p><a href="{{ url_for('site_list') }}">← 戻る</a></p>
+{% endblock %}

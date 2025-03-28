@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}WordPressサイト登録{% endblock %}
+{% block content %}
+<div class="container">
+  <h2 class="mb-4">🛠 WordPress サイト登録</h2>
+
+  <form method="POST">
+    {{ form.hidden_tag() }}
+
+    <div class="mb-3">
+      {{ form.site_name.label(class="form-label") }}
+      {{ form.site_name(class="form-control", placeholder="例: AIブログ") }}
+    </div>
+
+    <div class="mb-3">
+      {{ form.url.label(class="form-label") }}
+      {{ form.url(class="form-control", placeholder="https://your-site.com") }}
+    </div>
+
+    <div class="mb-3">
+      {{ form.genre.label(class="form-label") }}
+      {{ form.genre(class="form-control", placeholder="旅行, 美容, ビジネス など") }}
+    </div>
+
+    <div class="mb-3">
+      {{ form.wp_username.label(class="form-label") }}
+      {{ form.wp_username(class="form-control", placeholder="WordPress ユーザー名") }}
+    </div>
+
+    <div class="mb-3">
+      {{ form.wp_password.label(class="form-label") }}
+      {{ form.wp_password(class="form-control", placeholder="WordPress パスワード") }}
+    </div>
+
+    <div class="mb-3">
+      {{ form.wp_app_password.label(class="form-label") }}
+      {{ form.wp_app_password(class="form-control", placeholder="アプリパスワード（REST用）") }}
+    </div>
+
+    <button type="submit" class="btn btn-primary">✅ サイト登録 & 記事生成</button>
+  </form>
+
+  <div class="mt-3">
+    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">← ダッシュボードへ戻る</a>
+  </div>
+</div>
+{% endblock %}

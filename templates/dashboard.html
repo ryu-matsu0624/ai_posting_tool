@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}ダッシュボード{% endblock %}
+{% block content %}
+<h2 class="mb-4">📊 ダッシュボード</h2>
+
+{% if sites %}
+  <p>あなたの登録サイト一覧：</p>
+  <ul class="list-group mb-4">
+    {% for site in sites %}
+      <li class="list-group-item">
+        <strong>{{ site.site_name }}</strong>（{{ site.genre }}）
+        - <a href="{{ url_for('site_list') }}" class="btn btn-sm btn-primary ms-3">📄 サイト詳細</a>
+      </li>
+    {% endfor %}
+  </ul>
+  <a href="{{ url_for('register_site') }}" class="btn btn-success">➕ 新しいサイトを登録</a>
+{% else %}
+  <div class="alert alert-info">
+    サイトがまだ登録されていません。まずは以下から登録してください：
+  </div>
+  <a href="{{ url_for('register_site') }}" class="btn btn-primary">📥 サイト登録ページへ</a>
+{% endif %}
+{% endblock %}
