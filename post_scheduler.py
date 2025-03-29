@@ -1,49 +1,40 @@
 import os
-import smtplib
 import requests
 from datetime import datetime
 from flask import Flask
 from models import db, Article, WordPressSite
 from requests.auth import HTTPBasicAuth
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+from keywords import generate_image_plan, search_pixabay_images
 
 # ✅ Flaskアプリ初期化（DB接続用）
 app = Flask(__name__)
 basedir = os.path.abspath(os.path.dirname(__file__))
 db_path = os.path.join(basedir, "instance", "mydatabase.db")
 app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
 
-# ✅ メール通知関数
-def send_completion_email(to_email, site_name, article_titles):
-    sender_email = "your_gmail@gmail.com"
-    sender_password = "アプリパスワード"  # セキュアに管理するのがベスト
+# ✅ 画像をHTMLで挿入する関数
+def insert_images_into_content(content, keyword, title):
+    image_plan = generate_image_plan(content, keyword, title, max_images=3)
+    for plan in image_plan:
+        paragraph_index = plan.get("paragraph_index")
+        image_url = plan.get("image_url")
+        if not image_url:
+            continue
 
-    subject = f"✅ {site_name} の全記事投稿が完了しました！"
-    body = f"{site_name} に対する以下の全記事投稿が完了しました：\n\n"
-    for title in article_titles:
-        body += f"・{title}\n"
-    body += "\nお疲れさまでした！"
+        # content を段落に分割
+        paragraphs = content.split("\n\n")
+        if 0 <= paragraph_index < len(paragraphs):
+            # HTML の <img> タグを挿入
+            img_tag = f'<div style="text-align:center;"><img src="{image_url}" alt="{keyword}" style="max-width:100%; height:auto;"></div>'
+            paragraphs[paragraph_index] += f"\n\n{img_tag}"
 
-    msg = MIMEMultipart()
-    msg["From"] = sender_email
-    msg["To"] = to_email
-    msg["Subject"] = subject
-    msg.attach(MIMEText(body, "plain"))
+        content = "\n\n".join(paragraphs)
 
-    try:
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.starttls()
-        server.login(sender_email, sender_password)
-        server.send_message(msg)
-        server.quit()
-        print("✅ メール通知を送信しました。")
-    except Exception as e:
-        print(f"❌ メール送信失敗: {e}")
+    return content
 
-# ✅ メイン投稿処理（REST API）
+# ✅ メイン投稿処理（スケジュールチェック + 自動投稿）
 def main():
     with app.app_context():
         now = datetime.now()
@@ -52,11 +43,17 @@ def main():
             Article.status == 'scheduled'
         ).all()
 
-        site_article_map = {}
-
         for article in scheduled_articles:
             site = WordPressSite.query.get(article.site_id)
 
+            # ✅ 記事内容に画像を挿入
+            article.content = insert_images_into_content(
+                article.content,
+                keyword=article.keyword,
+                title=article.title
+            )
+
+            # ✅ WordPress投稿処理（REST API）
             try:
                 post_url = f"{site.url.rstrip('/')}/wp-json/wp/v2/posts"
                 post_data = {
@@ -71,27 +68,12 @@ def main():
                     article.status = 'posted'
                     db.session.commit()
                     print(f"✅ 投稿完了: {article.title}")
-
-                    if site.id not in site_article_map:
-                        site_article_map[site.id] = {
-                            "site": site,
-                            "titles": []
-                        }
-                    site_article_map[site.id]["titles"].append(article.title)
                 else:
                     print(f"❌ 投稿失敗: {article.title} - {response.status_code} - {response.text}")
 
             except Exception as e:
-                print(f"❌ 投稿失敗: {article.title} - {e}")
+                print(f"❌ 投稿中にエラー発生: {article.title} - {e}")
 
-        # ✅ 投稿完了したサイトごとに「全記事完了チェック」と通知
-        for site_id, data in site_article_map.items():
-            site = data["site"]
-            all_articles = Article.query.filter_by(site_id=site.id).all()
-            if all(a.status == 'posted' for a in all_articles):
-                user = site.user
-                send_completion_email(user.email, site.site_name, data["titles"])
-
-# ✅ 実行
+# ✅ CLIから実行
 if __name__ == "__main__":
     main()

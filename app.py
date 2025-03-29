@@ -1,41 +1,30 @@
-from wordpress_client import post_to_wordpress_rest
-import requests
-from requests.auth import HTTPBasicAuth
+import os
+import random
+from datetime import datetime, timedelta, time as dtime
 from flask import Flask, render_template, redirect, url_for, flash
-from forms import SignupForm, SiteRegisterForm, LoginForm
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from models import db, WordPressSite, Keyword, User, Article
+from forms import SignupForm, SiteRegisterForm, LoginForm
 from keywords import (
+    generate_keywords_from_genre,
     generate_title_prompt,
     generate_content_prompt,
     generate_image_prompt,
-    generate_keywords_from_genre
+    generate_image_plan,
+    search_pixabay_images
 )
-from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from datetime import datetime, timedelta, time as dtime
-import random
-import os
-from dotenv import load_dotenv
+from wordpress_client import post_to_wordpress_rest
 
-# ✅ .env 読み込み
-load_dotenv()
-
-# ✅ Flask アプリ設定
+# Flask App 初期化
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your_secret_key_here'
 basedir = os.path.abspath(os.path.dirname(__file__))
 db_path = os.path.join(basedir, "instance", "mydatabase.db")
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + db_path
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{db_path}"
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 
-# ✅ OpenAI APIキー確認（必要な場合）
-openai_api_key = os.getenv("OPENAI_API_KEY")
-if not openai_api_key:
-    raise Exception("❌ OPENAI_API_KEY が設定されていません。RenderのEnvironment設定を確認してください。")
-
-# openai.api_key = openai_api_key ← generate_xxx_prompt 系の関数の内部で使っていればこの設定が必要
-
-# 🔐 Login管理
+# ログイン設定
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"
@@ -76,29 +65,37 @@ def logout():
     logout_user()
     return redirect(url_for("login"))
 
-# 🔁 投稿時間生成ロジック
 def generate_scheduled_times(keyword_count):
     scheduled_times = []
     for i in range(keyword_count):
         day_offset = i // 3
         post_day = datetime.now().date() + timedelta(days=day_offset)
         weekday = post_day.weekday()
-        if weekday >= 5:
-            hour_range = (7, 15)
-        else:
-            hour_range = (10, 20)
+        hour_range = (7, 15) if weekday >= 5 else (10, 20)
         base_hour = random.randint(*hour_range)
         base_minute = random.randint(0, 59)
-        minute_buffer = random.randint(-10, 10)
-        final_minute = base_minute + minute_buffer
+        buffer = random.randint(-10, 10)
+        final_minute = base_minute + buffer
         final_hour = base_hour + final_minute // 60
-        final_minute = final_minute % 60
+        final_minute %= 60
         final_hour = max(6, min(final_hour, 22))
-        dt = datetime.combine(post_day, dtime.min).replace(
-            hour=final_hour, minute=final_minute, second=0, microsecond=0
-        )
+        dt = datetime.combine(post_day, dtime.min).replace(hour=final_hour, minute=final_minute)
         scheduled_times.append(dt)
     return scheduled_times
+
+def insert_images_into_content(content, keyword, title):
+    image_plan = generate_image_plan(content, keyword, title, max_images=3)
+    for plan in image_plan:
+        paragraph_index = plan.get("paragraph_index")
+        image_url = plan.get("image_url")
+        if not image_url:
+            continue
+        paragraphs = content.split("\n\n")
+        if 0 <= paragraph_index < len(paragraphs):
+            img_tag = f'<div style="text-align:center;"><img src="{image_url}" alt="{keyword}" style="max-width:100%; height:auto;"></div>'
+            paragraphs[paragraph_index] += f"\n\n{img_tag}"
+        content = "\n\n".join(paragraphs)
+    return content
 
 @app.route("/register_site", methods=["GET", "POST"])
 @login_required
@@ -116,28 +113,35 @@ def register_site():
         )
         db.session.add(site)
         db.session.commit()
-        print("✅ サイト登録成功、site.id:", site.id)
+
         keywords = generate_keywords_from_genre(site.genre)
         schedule_times = generate_scheduled_times(len(keywords))
+
         for idx, kw in enumerate(keywords):
             scheduled_time = schedule_times[idx]
             title = generate_title_prompt(kw)
             content = generate_content_prompt(title)
+            content_with_images = insert_images_into_content(content, kw, title)
             image_prompt = generate_image_prompt(content, kw, title)
+            image_results = search_pixabay_images(image_prompt)
+            featured_image_url = image_results[0] if image_results else None
+
             db.session.add(Keyword(keyword=kw, site_id=site.id))
             article = Article(
                 keyword=kw,
                 title=title,
-                content=content,
-                image_prompt=image_prompt,
+                content=content_with_images,
+                image_prompt=featured_image_url,
                 scheduled_time=scheduled_time,
                 status="scheduled",
                 site_id=site.id
             )
             db.session.add(article)
+
         db.session.commit()
         flash("記事が正常に生成されました", "success")
         return redirect(url_for("post_complete", site_id=site.id))
+
     return render_template("register_site.html", form=form)
 
 @app.route("/post_complete/<int:site_id>")
@@ -180,25 +184,33 @@ def generate_article(site_id, keyword):
     if not article:
         flash("記事が見つかりません", "danger")
         return redirect(url_for("site_list"))
+
     title = generate_title_prompt(keyword)
     content = generate_content_prompt(title)
+    content_with_images = insert_images_into_content(content, keyword, title)
     image_prompt = generate_image_prompt(content, keyword, title)
+    image_results = search_pixabay_images(image_prompt)
+    featured_image_url = image_results[0] if image_results else None
+
     response = post_to_wordpress_rest(
         site_url=site.url,
         username=site.wp_username,
         app_password=site.wp_app_password,
         title=title,
-        content=content
+        content=content_with_images,
+        featured_image_url=featured_image_url
     )
-    if response.status_code == 201:
+
+    if response and response.status_code == 201:
         article.title = title
-        article.content = content
-        article.image_prompt = image_prompt
+        article.content = content_with_images
+        article.image_prompt = featured_image_url
         article.status = 'posted'
         db.session.commit()
         flash("✅ WordPressに投稿完了", "success")
     else:
-        flash(f"❌ 投稿失敗: {response.status_code} - {response.text}", "danger")
+        flash("❌ 投稿失敗", "danger")
+
     return redirect(url_for("post_complete", site_id=site.id))
 
 @app.route("/dashboard")
