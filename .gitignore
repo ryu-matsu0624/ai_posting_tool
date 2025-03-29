@@ -1,12 +1,22 @@
 # 環境変数ファイル
 .env
 
-# データベース
+# データベースディレクトリ（SQLite DB など）
 instance/
+*.db
 
-# Pythonキャッシュファイル
+# Python キャッシュファイル
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
 
-# 仮想環境（もしプロジェクト内に作った場合）
+# VSCode の設定ファイル（あれば）
+.vscode/
+
+# 仮想環境（プロジェクト直下に作った場合）
 venv/
+.venv/
+
+# OSごとの不要ファイル
+.DS_Store
+Thumbs.db
