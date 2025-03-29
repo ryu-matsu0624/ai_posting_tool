@@ -4,7 +4,6 @@ from requests.auth import HTTPBasicAuth
 from flask import Flask, render_template, redirect, url_for, flash
 from forms import SignupForm, SiteRegisterForm, LoginForm
 from models import db, WordPressSite, Keyword, User, Article
-from keywords import generate_keywords_from_genre
 from keywords import (
     generate_title_prompt,
     generate_content_prompt,
@@ -12,18 +11,31 @@ from keywords import (
     generate_keywords_from_genre
 )
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-import os
 from datetime import datetime, timedelta, time as dtime
 import random
+import os
+from dotenv import load_dotenv
 
+# ✅ .env 読み込み
+load_dotenv()
+
+# ✅ Flask アプリ設定
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your_secret_key_here'
 basedir = os.path.abspath(os.path.dirname(__file__))
 db_path = os.path.join(basedir, "instance", "mydatabase.db")
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'instance', 'mydatabase.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + db_path
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
 
+# ✅ OpenAI APIキー確認（必要な場合）
+openai_api_key = os.getenv("OPENAI_API_KEY")
+if not openai_api_key:
+    raise Exception("❌ OPENAI_API_KEY が設定されていません。RenderのEnvironment設定を確認してください。")
+
+# openai.api_key = openai_api_key ← generate_xxx_prompt 系の関数の内部で使っていればこの設定が必要
+
+# 🔐 Login管理
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"
@@ -64,16 +76,16 @@ def logout():
     logout_user()
     return redirect(url_for("login"))
 
-# 🔁 改善：投稿時間生成ロジック
+# 🔁 投稿時間生成ロジック
 def generate_scheduled_times(keyword_count):
     scheduled_times = []
     for i in range(keyword_count):
         day_offset = i // 3
         post_day = datetime.now().date() + timedelta(days=day_offset)
         weekday = post_day.weekday()
-        if weekday >= 5:  # 土日
+        if weekday >= 5:
             hour_range = (7, 15)
-        else:  # 平日
+        else:
             hour_range = (10, 20)
         base_hour = random.randint(*hour_range)
         base_minute = random.randint(0, 59)

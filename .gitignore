@@ -2,8 +2,10 @@
 .env
 
 # データベースディレクトリ（SQLite DB など）
-instance/
-*.db
+# ↓ これをコメントアウトまたは削除して、DB を push 対象にする
+# instance/
+# ↓ これも削除またはコメントアウト
+# *.db
 
 # Python キャッシュファイル
 __pycache__/
