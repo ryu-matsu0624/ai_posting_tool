@@ -30,18 +30,32 @@ def insert_images_into_content(content, keyword, title):
         content = "\n\n".join(paragraphs)
     return content
 
-# ✅ メイン投稿処理（スケジュール確認 + 投稿）
+# ✅ メイン投稿処理（スケジュール確認 + 投稿 + 日別投稿制限）
 def main():
     with app.app_context():
         now = datetime.now()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # 投稿対象の記事を取得（未投稿で時間が来ている）
         articles = Article.query.filter(
             Article.scheduled_time <= now,
             Article.status == 'scheduled'
-        ).all()
+        ).order_by(Article.scheduled_time.asc()).all()
 
         for article in articles:
             site = WordPressSite.query.get(article.site_id)
             print(f"\n▶ 投稿対象: {article.title}（サイト: {site.site_name}）")
+
+            # ✅ 本日投稿済みの数をチェック（最大3件まで許容）
+            posted_today = Article.query.filter(
+                Article.site_id == site.id,
+                Article.status == 'posted',
+                Article.scheduled_time >= today_start
+            ).count()
+
+            if posted_today >= 3:
+                print(f"⏭️ スキップ: {site.site_name} は本日すでに 3件 投稿済")
+                continue
 
             # 本文に画像を挿入
             article.content = insert_images_into_content(
@@ -54,20 +68,22 @@ def main():
             site_url = site.url.strip().replace("http://", "https://").rstrip("/")
             post_url = f"{site_url}/wp-json/wp/v2/posts"
 
-            # 投稿データ生成
+            # 投稿データ
             post_data = {
                 "title": article.title,
                 "content": article.content,
                 "status": "publish"
             }
 
-            # ✅ アイキャッチ画像が指定されていればアップロード
+            # ✅ アイキャッチ画像を WordPress にアップロード
             if article.image_prompt:
-                media_id = upload_image_to_wordpress(site_url, site.wp_username, site.wp_app_password, article.image_prompt)
+                media_id = upload_image_to_wordpress(
+                    site_url, site.wp_username, site.wp_app_password, article.image_prompt
+                )
                 if media_id:
                     post_data["featured_media"] = media_id
 
-            # 投稿送信
+            # 投稿送信処理
             try:
                 auth = HTTPBasicAuth(site.wp_username, site.wp_app_password)
                 response = requests.post(post_url, json=post_data, auth=auth)

@@ -15,6 +15,7 @@ from keywords import (
     search_pixabay_images
 )
 from wordpress_client import post_to_wordpress_rest
+from article_generator import generate_articles_for_site
 
 # Flask App 初期化
 app = Flask(__name__)
@@ -119,31 +120,24 @@ def register_site():
         schedule_times = generate_scheduled_times(len(keywords))
 
         for idx, kw in enumerate(keywords):
-            scheduled_time = schedule_times[idx]
-            title = generate_title_prompt(kw)
-            content = generate_content_prompt(title)
-            content_with_images = insert_images_into_content(content, kw, title)
-            image_prompt = generate_image_prompt(content, kw, title)
-            image_results = search_pixabay_images(image_prompt)
-            featured_image_url = image_results[0] if image_results else None
-
             db.session.add(Keyword(keyword=kw, site_id=site.id))
-            article = Article(
+            db.session.add(Article(
                 keyword=kw,
-                title=title,
-                content=content_with_images,
-                image_prompt=featured_image_url,
-                scheduled_time=scheduled_time,
-                status="scheduled",
+                scheduled_time=schedule_times[idx],
+                status="pending",  # ←「未生成状態」で登録
                 site_id=site.id
-            )
-            db.session.add(article)
+            ))
 
         db.session.commit()
-        flash("記事が正常に生成されました", "success")
-        return redirect(url_for("post_complete", site_id=site.id))
+
+        # ✅ 非同期でバックグラウンド生成開始
+        generate_articles_for_site(site)
+
+        # ✅ すぐにログ画面に遷移
+        return redirect(url_for("post_logs"))
 
     return render_template("register_site.html", form=form)
+
 
 @app.route("/post_complete/<int:site_id>")
 @login_required
@@ -225,8 +219,16 @@ def dashboard():
 def post_logs():
     articles = Article.query.join(WordPressSite).filter(
         WordPressSite.user_id == current_user.id
-    ).order_by(Article.scheduled_time.desc()).all()
-    return render_template("post_logs.html", articles=articles)
+    ).order_by(Article.scheduled_time.asc()).all()
+
+    status_emojis = {
+        "pending": "⏳",
+        "scheduled": "✅",
+        "posted": "🚀"
+    }
+
+    return render_template("post_logs.html", articles=articles, status_emojis=status_emojis)
+
 
 @app.route("/calendar")
 @login_required

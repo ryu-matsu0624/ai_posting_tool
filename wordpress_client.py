@@ -16,16 +16,21 @@ def upload_image_to_wordpress(site_url, username, app_password, image_url):
     """
     media_endpoint = f"{site_url}/wp-json/wp/v2/media"
     headers = {
-        "Content-Disposition": "attachment; filename=featured.jpg"
+        "Content-Disposition": "attachment; filename=featured.jpg",
+        "Content-Type": "image/jpeg"
     }
 
     try:
-        image_data = requests.get(image_url).content
+        image_response = requests.get(image_url, timeout=15)
+        image_response.raise_for_status()
+        image_data = image_response.content
+
         response = requests.post(
             media_endpoint,
             headers=headers,
             data=image_data,
-            auth=HTTPBasicAuth(username, app_password)
+            auth=HTTPBasicAuth(username, app_password),
+            timeout=20  # 🔧 タイムアウト追加
         )
 
         if response.status_code in [200, 201]:
@@ -39,6 +44,7 @@ def upload_image_to_wordpress(site_url, username, app_password, image_url):
     except Exception as e:
         print("❌ 画像送信エラー:", str(e))
         return None
+
 
 def post_to_wordpress_rest(site_url, username, app_password, title, content, featured_image_url=None):
     """
@@ -55,7 +61,7 @@ def post_to_wordpress_rest(site_url, username, app_password, title, content, fea
     Returns:
         response (requests.Response): 投稿結果のレスポンス
     """
-    endpoint = f"{site_url}/wp-json/wp/v2/posts"
+    endpoint = f"{site_url.rstrip('/')}/wp-json/wp/v2/posts"
 
     post_data = {
         "title": title,
@@ -73,7 +79,8 @@ def post_to_wordpress_rest(site_url, username, app_password, title, content, fea
         response = requests.post(
             endpoint,
             json=post_data,
-            auth=HTTPBasicAuth(username, app_password)
+            auth=HTTPBasicAuth(username, app_password),
+            timeout=20  # 🔧 タイムアウト追加
         )
 
         print("✅ 投稿レスポンス:", response.status_code)

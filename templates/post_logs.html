@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h2>📑 投稿ログ</h2>
+
 <table class="table table-striped">
   <thead>
     <tr>
@@ -8,6 +9,7 @@
       <th>タイトル</th>
       <th>状態</th>
       <th>投稿予定</th>
+      <th>操作</th>
     </tr>
   </thead>
   <tbody>
@@ -15,14 +17,37 @@
     <tr>
       <td>{{ article.site.site_name }}</td>
       <td>{{ article.title }}</td>
+
+      <!-- ステータス表示 -->
       <td>
         {% if article.status == 'posted' %}
-          ✅ 投稿済み
+          <span title="この記事は既にWordPressに投稿されました">🚀 投稿済み</span>
+        {% elif article.status == 'scheduled' %}
+          <span title="記事生成完了、スケジュール投稿待ちです">✅ 生成完了</span>
+        {% elif article.status == 'pending' %}
+          <span class="spinner-border spinner-border-sm text-warning" role="status"
+                title="現在AIが記事を生成中です（進捗目安: 50%）">
+          </span>
+          ⏳ 生成中...
         {% else %}
-          ⏳ {{ article.status }}
+          ❓ {{ article.status }}
         {% endif %}
       </td>
+
+      <!-- スケジュール -->
       <td>{{ article.scheduled_time.strftime('%Y-%m-%d %H:%M') }}</td>
+
+      <!-- 操作ボタン -->
+      <td>
+        {% if article.status in ['scheduled', 'posted'] %}
+          <a href="{{ url_for('preview_article', article_id=article.id) }}" class="btn btn-outline-primary btn-sm">プレビュー</a>
+          {% if article.status == "scheduled" %}
+            <a href="{{ url_for('edit_article', article_id=article.id) }}" class="btn btn-outline-secondary btn-sm">編集</a>
+          {% endif %}
+        {% else %}
+          <span class="text-muted">－</span>
+        {% endif %}
+      </td>
     </tr>
     {% endfor %}
   </tbody>

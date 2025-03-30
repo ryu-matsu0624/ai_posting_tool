@@ -1,9 +1,8 @@
-# keywords.py
-
 import os
 import requests
+import time
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import OpenAI, RateLimitError, APIConnectionError
 from urllib.parse import quote
 
 load_dotenv()
@@ -14,26 +13,30 @@ PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY")
 # -------------------------
 # ChatGPTとのやり取り関数
 # -------------------------
-
-def ask_chatgpt(prompt, role="あなたはSEOに詳しいライターです。"):
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4-1106-preview",
-            messages=[
-                {"role": "system", "content": role},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        print("❌ OpenAIエラー:", e)
-        return ""
+def ask_chatgpt(prompt, role="あなたはSEOに詳しいライターです。", retries=3):
+    for attempt in range(retries):
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4-1106-preview",
+                messages=[
+                    {"role": "system", "content": role},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                timeout=30  # 🔧 タイムアウト指定
+            )
+            return response.choices[0].message.content.strip()
+        except (RateLimitError, APIConnectionError) as e:
+            print(f"⚠️ ChatGPT通信エラー: {e} - {attempt + 1}回目のリトライ中...")
+            time.sleep(2 * (attempt + 1))
+        except Exception as e:
+            print(f"❌ OpenAIエラー: {e}")
+            break
+    return "（ChatGPT生成失敗）"
 
 # -------------------------
 # プロンプト生成
 # -------------------------
-
 def genre_to_keywords_prompt(genre):
     return f"""
 サイトジャンルからSEO対策として適切なキーワードを10個生成してください。
@@ -92,10 +95,9 @@ def article_to_image_prompt(keyword, title, content):
 # -------------------------
 # Pixabay画像検索
 # -------------------------
-
 def search_pixabay_images(keyword, max_results=5):
     if not PIXABAY_API_KEY:
-        print("❌ Pixabay APIキーが設定されていません")
+        print("❌ Pixabay APIキーが未設定です")
         return []
 
     encoded_query = quote(keyword)
@@ -109,7 +111,7 @@ def search_pixabay_images(keyword, max_results=5):
     }
 
     try:
-        response = requests.get(url, params=params)
+        response = requests.get(url, params=params, timeout=15)
         response.raise_for_status()
         results = response.json()
         return [hit["webformatURL"] for hit in results.get("hits", [])]
@@ -120,7 +122,6 @@ def search_pixabay_images(keyword, max_results=5):
 # -------------------------
 # 段落挿入プラン生成
 # -------------------------
-
 def generate_image_plan(content, keyword, title, max_images=3):
     prompt = article_to_image_prompt(keyword, title, content)
     search_query = ask_chatgpt(prompt)
@@ -148,7 +149,6 @@ def generate_image_plan(content, keyword, title, max_images=3):
 # -------------------------
 # 公開API関数群
 # -------------------------
-
 def generate_keywords_from_genre(genre):
     prompt = genre_to_keywords_prompt(genre)
     result = ask_chatgpt(prompt)
