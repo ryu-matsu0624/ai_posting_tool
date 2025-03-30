@@ -111,7 +111,7 @@ def search_pixabay_images(keyword, max_results=5):
     }
 
     try:
-        response = requests.get(url, params=params, timeout=15)
+        response = requests.get(url, params=params, timeout=10)
         response.raise_for_status()
         results = response.json()
         return [hit["webformatURL"] for hit in results.get("hits", [])]
@@ -145,6 +145,23 @@ def generate_image_plan(content, keyword, title, max_images=3):
             "image_url": image_urls[i]
         })
     return plan
+
+# -------------------------
+# 記事中に画像挿入する関数
+# -------------------------
+def insert_images_into_content(content, keyword, title, max_images=3):
+    image_plan = generate_image_plan(content, keyword, title, max_images=max_images)
+    for plan in image_plan:
+        paragraph_index = plan.get("paragraph_index")
+        image_url = plan.get("image_url")
+        if not image_url:
+            continue
+        paragraphs = content.split("\n\n")
+        if 0 <= paragraph_index < len(paragraphs):
+            img_tag = f'<div style="text-align:center;"><img src="{image_url}" alt="{keyword}" style="max-width:100%; height:auto;"></div>'
+            paragraphs[paragraph_index] += f"\n\n{img_tag}"
+        content = "\n\n".join(paragraphs)
+    return content
 
 # -------------------------
 # 公開API関数群
