@@ -175,8 +175,18 @@ def generate_keywords_from_genre(genre):
 def generate_title_prompt(keyword):
     prompt = keyword_to_title_prompt(keyword)
     result = ask_chatgpt(prompt)
-    titles = [line.strip() for line in result.splitlines() if line.strip()]
-    return titles[0] if titles else f"{keyword} に関する記事"
+
+    if not result:
+        print(f"⚠️ ChatGPTがタイトルを返しませんでした（keyword: {keyword}）")
+        return f"{keyword} に関する記事"
+
+    try:
+        titles = [line.strip() for line in result.splitlines() if line.strip()]
+        return titles[0] if titles else f"{keyword} に関する記事"
+    except Exception as e:
+        print(f"❌ タイトルパースエラー: {e}")
+        return f"{keyword} に関する記事"
+
 
 def generate_content_prompt(title):
     prompt = title_to_article_prompt(title)
