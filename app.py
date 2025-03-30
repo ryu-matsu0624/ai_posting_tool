@@ -122,11 +122,15 @@ def register_site():
         for idx, kw in enumerate(keywords):
             db.session.add(Keyword(keyword=kw, site_id=site.id))
             db.session.add(Article(
-                keyword=kw,
-                scheduled_time=schedule_times[idx],
-                status="pending",  # ←「未生成状態」で登録
-                site_id=site.id
-            ))
+    keyword=kw,
+    title="タイトル生成中…",  # 🔴追加！
+    content="",
+    image_prompt="",
+    scheduled_time=schedule_times[idx],
+    status="pending",
+    site_id=site.id
+))
+
 
         db.session.commit()
 

@@ -16,6 +16,7 @@ PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY")
 def ask_chatgpt(prompt, role="あなたはSEOに詳しいライターです。", retries=3):
     for attempt in range(retries):
         try:
+            print(f"\n📤 ChatGPTプロンプト:\n{prompt}\n")
             response = client.chat.completions.create(
                 model="gpt-4-1106-preview",
                 messages=[
@@ -23,73 +24,80 @@ def ask_chatgpt(prompt, role="あなたはSEOに詳しいライターです。",
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.7,
-                timeout=30  # 🔧 タイムアウト指定
+                timeout=30
             )
-            return response.choices[0].message.content.strip()
+            result = response.choices[0].message.content.strip()
+            print(f"\n📥 ChatGPTレスポンス:\n{result}\n")
+            return result
         except (RateLimitError, APIConnectionError) as e:
             print(f"⚠️ ChatGPT通信エラー: {e} - {attempt + 1}回目のリトライ中...")
             time.sleep(2 * (attempt + 1))
         except Exception as e:
             print(f"❌ OpenAIエラー: {e}")
             break
-    return "（ChatGPT生成失敗）"
+    return None  # 明示的に失敗を返す
 
 # -------------------------
 # プロンプト生成
 # -------------------------
 def genre_to_keywords_prompt(genre):
     return f"""
-サイトジャンルからSEO対策として適切なキーワードを10個生成してください。
-条件：
-- すべて3語以上のロングテールキーワード
-- SEOで上位表示されやすいもの
-- 形式：1行に1つのキーワード
+あなたはSEO専門家です。
+以下のジャンルからSEO対策に適したロングテールキーワードを10個、1行ずつ出力してください。
+
+【条件】
+- 3語以上の日本語キーワード
+- 月間検索ボリュームが中以上を想定
+- 実際に検索されそうな表現で
+- フォーマット: 1行に1キーワード
 
 ジャンル: {genre}
 """
 
 def keyword_to_title_prompt(keyword):
     return f"""
-以下の条件でクリックされやすい魅力的なタイトルを10個作成してください。
+以下の条件でクリックされやすい日本語タイトルを10個作成してください。
 
 【条件】
 - 必ず「{keyword}」を含める
 - 32文字以内
-- 数字やベネフィットを入れると良い
-- 「:」「：」「""」「''」「-」は禁止
+- 数字、ベネフィットを含めると良い
+- 記号（:,：,""''-）は禁止
 
-出力形式：
-タイトル1
-タイトル2
-タイトル3
+フォーマット：タイトルのみを1行ずつ
 """
 
 def title_to_article_prompt(title):
     return f"""
-以下のQ&A記事タイトルに対する回答記事を生成してください：
+以下のQ&A形式の日本語記事を生成してください。
 
 【タイトル】
 {title}
 
 【条件】
 ・構成：問題提起 → 共感 → 解決策
-・2500～3500文字程度
-・段落は2行空ける、1行は30文字前後
-・語りかけるように「あなた」視点で書く
-・敬語で、親しみやすいトーンで
-・見出し（H2, H3）を適切に使う
+・本文：2500～3500文字
+・文体：「あなた」視点で、親しみやすい語りかけ
+・敬語で、初心者にも分かりやすく
+・段落ごとに2行空ける、1行30文字程度
+・H2/H3見出しを適切に使う
 """
 
 def article_to_image_prompt(keyword, title, content):
     return f"""
-以下の記事に最も合うPixabay検索用画像キーワードを5語以内の英語で提案してください。
+以下の記事にマッチするPixabay画像を検索するための英語キーワードを提案してください。
 
-キーワード: {keyword}
-タイトル: {title}
-本文抜粋:
+【キーワード】
+{keyword}
+
+【タイトル】
+{title}
+
+【本文抜粋】
 {content[:700]}
 
-出力形式（例）: city night skyline
+【出力形式】
+city night skyline など、スペース区切りの5語以内英語キーワード
 """
 
 # -------------------------
@@ -120,12 +128,11 @@ def search_pixabay_images(keyword, max_results=5):
         return []
 
 # -------------------------
-# 段落挿入プラン生成
+# 画像挿入位置の決定
 # -------------------------
 def generate_image_plan(content, keyword, title, max_images=3):
     prompt = article_to_image_prompt(keyword, title, content)
     search_query = ask_chatgpt(prompt)
-
     if not search_query:
         return []
 
@@ -147,7 +154,7 @@ def generate_image_plan(content, keyword, title, max_images=3):
     return plan
 
 # -------------------------
-# 記事中に画像挿入する関数
+# 記事中に画像挿入
 # -------------------------
 def insert_images_into_content(content, keyword, title, max_images=3):
     image_plan = generate_image_plan(content, keyword, title, max_images=max_images)
@@ -164,33 +171,29 @@ def insert_images_into_content(content, keyword, title, max_images=3):
     return content
 
 # -------------------------
-# 公開API関数群
+# 公開関数
 # -------------------------
 def generate_keywords_from_genre(genre):
     prompt = genre_to_keywords_prompt(genre)
     result = ask_chatgpt(prompt)
+    if not result:
+        return []
     keywords = [line.strip("-・0123456789. ").strip() for line in result.splitlines() if line.strip()]
     return keywords[:10]
 
 def generate_title_prompt(keyword):
     prompt = keyword_to_title_prompt(keyword)
     result = ask_chatgpt(prompt)
-
     if not result:
-        print(f"⚠️ ChatGPTがタイトルを返しませんでした（keyword: {keyword}）")
-        return f"{keyword} に関する記事"
-
-    try:
-        titles = [line.strip() for line in result.splitlines() if line.strip()]
-        return titles[0] if titles else f"{keyword} に関する記事"
-    except Exception as e:
-        print(f"❌ タイトルパースエラー: {e}")
-        return f"{keyword} に関する記事"
-
+        print(f"⚠️ タイトル生成失敗（keyword: {keyword}）")
+        return None
+    titles = [line.strip() for line in result.splitlines() if line.strip()]
+    return titles[0] if titles else None
 
 def generate_content_prompt(title):
     prompt = title_to_article_prompt(title)
-    return ask_chatgpt(prompt)
+    result = ask_chatgpt(prompt)
+    return result if result else None
 
 def generate_image_prompt(content, keyword="", title=""):
     return ask_chatgpt(article_to_image_prompt(keyword, title, content))
