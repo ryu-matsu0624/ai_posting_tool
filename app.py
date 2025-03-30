@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, time as dtime
 from flask import Flask, render_template, redirect, url_for, flash
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from models import db, WordPressSite, Keyword, User, Article
+from forms import EditArticleForm
 from forms import SignupForm, SiteRegisterForm, LoginForm
 from keywords import (
     generate_keywords_from_genre,
@@ -241,6 +242,33 @@ def calendar():
             "color": "green" if article.status == "posted" else "orange"
         })
     return render_template("calendar.html", events=events)
+
+@app.route("/preview/<int:site_id>")
+@login_required
+def preview_list(site_id):
+    site = WordPressSite.query.get_or_404(site_id)
+    articles = Article.query.filter_by(site_id=site.id, status="scheduled").all()
+    return render_template("preview_list.html", site=site, articles=articles)
+
+@app.route("/preview_article/<int:article_id>")
+@login_required
+def preview_article(article_id):
+    article = Article.query.get_or_404(article_id)
+    return render_template("article_preview.html", article=article)
+
+@app.route("/edit_article/<int:article_id>", methods=["GET", "POST"])
+@login_required
+def edit_article(article_id):
+    article = Article.query.get_or_404(article_id)
+    form = EditArticleForm(obj=article)
+    if form.validate_on_submit():
+        article.title = form.title.data
+        article.content = form.content.data
+        db.session.commit()
+        flash("✅ 編集を保存しました", "success")
+        return redirect(url_for("preview_article", article_id=article.id))
+    return render_template("article_edit.html", form=form)
+
 
 if __name__ == "__main__":
     app.run(debug=True)

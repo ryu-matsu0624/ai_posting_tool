@@ -1,0 +1,7 @@
+<h2>記事を編集</h2>
+<form method="POST">
+  {{ form.hidden_tag() }}
+  <p>{{ form.title.label }}<br>{{ form.title(size=80) }}</p>
+  <p>{{ form.content.label }}<br>{{ form.content(rows=20, cols=80) }}</p>
+  <p>{{ form.save() }}</p>
+</form>

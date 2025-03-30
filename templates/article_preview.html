@@ -1,16 +1,21 @@
 {% extends "base.html" %}
 {% block title %}記事プレビュー{% endblock %}
 {% block content %}
-<h2>📝 記事プレビュー：{{ site.site_name }}</h2>
+<h2>📝 記事プレビュー：{{ article.site.site_name }}</h2>
 
-<p><strong>キーワード：</strong>{{ keyword }}</p>
-<p><strong>タイトル：</strong>{{ title }}</p>
+<p><strong>キーワード：</strong>{{ article.keyword }}</p>
+<p><strong>タイトル：</strong>{{ article.title }}</p>
 
 <h3>📄 記事本文</h3>
-<pre style="white-space: pre-wrap;">{{ content }}</pre>
+<pre style="white-space: pre-wrap;">{{ article.content }}</pre>
 
-<h3>🖼️ アイキャッチ画像プロンプト</h3>
-<pre>{{ image_prompt }}</pre>
+<h3>🖼️ アイキャッチ画像URL</h3>
+{% if article.image_prompt %}
+    <img src="{{ article.image_prompt }}" style="max-width:100%; height:auto;" alt="アイキャッチ画像">
+{% else %}
+    <p>アイキャッチ画像なし</p>
+{% endif %}
 
-<p><a href="{{ url_for('site_list') }}">← 戻る</a></p>
+<p><a href="{{ url_for('edit_article', article_id=article.id) }}">✏️ この投稿を編集</a></p>
+<p><a href="{{ url_for('site_list') }}">← サイト一覧に戻る</a></p>
 {% endblock %}
