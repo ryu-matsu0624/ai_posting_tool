@@ -42,9 +42,9 @@ class Article(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     keyword = db.Column(db.String(255), nullable=False)
-    title = db.Column(db.String(255), nullable=False)
-    content = db.Column(db.Text, nullable=False)
-    image_prompt = db.Column(db.Text)
+    title = db.Column(db.String, nullable=False, default="タイトル未設定")
+    content = db.Column(db.Text, nullable=False, default="")
+    image_prompt = db.Column(db.String, nullable=False, default="")
     scheduled_time = db.Column(db.DateTime, nullable=False)
     status = db.Column(db.String(50), default='scheduled')  # scheduled / posted
     site_id = db.Column(db.Integer, db.ForeignKey("word_press_site.id"), nullable=False)
