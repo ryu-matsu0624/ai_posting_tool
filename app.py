@@ -16,6 +16,7 @@ from keywords import (
 )
 from wordpress_client import post_to_wordpress_rest
 from article_generator import generate_articles_for_site
+from routes import *
 
 # Flask App 初期化
 app = Flask(__name__)
