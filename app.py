@@ -1,9 +1,6 @@
 import os
 import random
 from datetime import datetime, timedelta, time as dtime
-from flask import Flask, render_template, redirect, url_for, flash
-from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from models import db, WordPressSite, Keyword, User, Article
 from forms import EditArticleForm
 from forms import SignupForm, SiteRegisterForm, LoginForm
 from keywords import (
@@ -19,7 +16,6 @@ from article_generator import generate_articles_for_site
 from routes import *
 
 # Flask App 初期化
-app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your_secret_key_here'  # 強力なランダムなキーを使用することをお勧めします
 basedir = os.path.abspath(os.path.dirname(__file__))
 db_path = os.path.join(basedir, "instance", "mydatabase.db")
@@ -277,6 +273,8 @@ def edit_article(article_id):
         return redirect(url_for("preview_article", article_id=article.id))
     return render_template("article_edit.html", form=form)
 
+from app_init import app
+import routes  # アプリのルーティングを読み込む
 
 if __name__ == "__main__":
     app.run(debug=True)

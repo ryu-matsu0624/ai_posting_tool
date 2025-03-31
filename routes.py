@@ -1,14 +1,40 @@
-from keywords import search_pixabay_images
 from flask import render_template, redirect, url_for, request, flash
 from flask_login import login_user, login_required, logout_user, current_user
-from app import app  # Flaskアプリケーションインスタンスをインポート
-from models import db, User, WordPressSite, Keyword, Article, PostLog
-from forms import SignupForm, LoginForm, SiteRegisterForm, EditArticleForm  # フォームをインポート
-from keywords import generate_keywords_from_genre, generate_title_prompt, generate_content_prompt, insert_images_into_content, generate_image_prompt  # 必要な関数をインポート
-from article_generator import generate_articles_for_site, generate_scheduled_times  # 記事生成関数をインポート
-from wordpress_client import post_to_wordpress_rest  # WordPress投稿処理をインポート
 from werkzeug.security import check_password_hash
+from app_init import app  # ← app.py ではなく app_init.py からインポート
+from models import db, User, WordPressSite, Keyword, Article, PostLog
+from forms import SignupForm, LoginForm, SiteRegisterForm, EditArticleForm
+from keywords import generate_keywords_from_genre, generate_title_prompt, generate_content_prompt, insert_images_into_content, generate_image_prompt, search_pixabay_images
+from article_generator import generate_articles_for_site, generate_scheduled_times
+from wordpress_client import post_to_wordpress_rest
 from flask_login import LoginManager
+
+# ログインマネージャーロード
+login_manager = LoginManager()
+login_manager.init_app(app)
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+# 以降：signup, login, logout, dashboard, register_site, generate_article などすべてのルート
+# 今までのままでOK（app = Flask(__name__) は削除したので循環参照が起きない）
+
+# 例：ログインページ
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    form = LoginForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(email=form.email.data).first()
+        if user and user.check_password(form.password.data):
+            login_user(user, remember=True)
+            flash('ログイン成功', 'success')
+            return redirect(url_for('dashboard'))
+        flash('メールアドレスまたはパスワードが違います', 'danger')
+    return render_template('login.html', form=form)
+
+# 残りのルートは現状のコードのまま（例：register_site, dashboard, post_logs, calendar など）
+
 
 # ログインマネージャーの初期化
 login_manager = LoginManager()
