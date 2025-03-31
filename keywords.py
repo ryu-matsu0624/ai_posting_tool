@@ -43,13 +43,12 @@ def ask_chatgpt(prompt, role="あなたはSEOに詳しいライターです。",
 def genre_to_keywords_prompt(genre):
     return f"""
 あなたはSEO専門家です。
-以下のジャンルからSEO対策に適したロングテールキーワードを10個、1行ずつ出力してください。
+以下のジャンルからSEO対策に適したロングテールキーワードを10個出力してください。
 
 【条件】
 - 3語以上の日本語キーワード
 - 月間検索ボリュームが中以上を想定
 - 実際に検索されそうな表現で
-- フォーマット: 1行に1キーワード
 
 ジャンル: {genre}
 """
@@ -64,7 +63,6 @@ def keyword_to_title_prompt(keyword):
 - 数字、ベネフィットを含めると良い
 - 記号（:,：,""''-）は禁止
 
-フォーマット：タイトルのみを1行ずつ
 """
 
 def title_to_article_prompt(title):

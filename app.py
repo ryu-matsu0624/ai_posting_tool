@@ -19,7 +19,7 @@ from article_generator import generate_articles_for_site
 
 # Flask App 初期化
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your_secret_key_here'
+app.config['SECRET_KEY'] = 'your_secret_key_here'  # 強力なランダムなキーを使用することをお勧めします
 basedir = os.path.abspath(os.path.dirname(__file__))
 db_path = os.path.join(basedir, "instance", "mydatabase.db")
 app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{db_path}"
@@ -30,6 +30,9 @@ db.init_app(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"
+
+# セッションの保持期間を設定（10年間）
+app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=3650)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -56,7 +59,7 @@ def login():
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data).first()
         if user and user.password == form.password.data:
-            login_user(user)
+            login_user(user, remember=True)  # remember=True でセッションを永続化
             flash("ログイン成功", "success")
             return redirect(url_for("dashboard"))
         flash("メールアドレスまたはパスワードが違います", "danger")
@@ -122,15 +125,14 @@ def register_site():
         for idx, kw in enumerate(keywords):
             db.session.add(Keyword(keyword=kw, site_id=site.id))
             db.session.add(Article(
-    keyword=kw,
-    title="タイトル生成中…",  # 🔴追加！
-    content="",
-    image_prompt="",
-    scheduled_time=schedule_times[idx],
-    status="pending",
-    site_id=site.id
-))
-
+                keyword=kw,
+                title="タイトル生成中…",  # 🔴追加！
+                content="",
+                image_prompt="",
+                scheduled_time=schedule_times[idx],
+                status="pending",
+                site_id=site.id
+            ))
 
         db.session.commit()
 
@@ -141,7 +143,6 @@ def register_site():
         return redirect(url_for("post_logs"))
 
     return render_template("register_site.html", form=form)
-
 
 @app.route("/post_complete/<int:site_id>")
 @login_required

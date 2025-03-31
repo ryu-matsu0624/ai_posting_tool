@@ -1,49 +1,83 @@
 {% extends "base.html" %}
+
 {% block content %}
-<h2>📑 投稿ログ</h2>
+<h2>📑 投稿ログ（スケジュールと状態の可視化）</h2>
 
 <table class="table table-striped">
   <thead>
     <tr>
-      <th>サイト名</th>
-      <th>タイトル</th>
-      <th>状態</th>
-      <th>投稿予定</th>
-      <th>操作</th>
+      <th>📝 サイト名</th>
+      <th>📌 タイトル</th>
+      <th>📊 状態</th>
+      <th>⏰ 投稿予定</th>
+      <th>📄 詳細ログ</th>
+      <th>🔧 操作</th>
     </tr>
   </thead>
   <tbody>
     {% for article in articles %}
     <tr>
+      <!-- サイト名 -->
       <td>{{ article.site.site_name }}</td>
+
+      <!-- 記事タイトル -->
       <td>{{ article.title }}</td>
 
-      <!-- ステータス表示 -->
+      <!-- 状態 -->
       <td>
         {% if article.status == 'posted' %}
-          <span title="この記事は既にWordPressに投稿されました">🚀 投稿済み</span>
+          <span class="badge bg-success" title="この記事は投稿済みです">🚀 投稿済み</span>
         {% elif article.status == 'scheduled' %}
-          <span title="記事生成完了、スケジュール投稿待ちです">✅ 生成完了</span>
+          <span class="badge bg-info text-dark" title="記事は投稿待ちの状態です">✅ スケジュール済み</span>
         {% elif article.status == 'pending' %}
-          <span class="spinner-border spinner-border-sm text-warning" role="status"
-                title="現在AIが記事を生成中です（進捗目安: 50%）">
-          </span>
-          ⏳ 生成中...
+          <span class="badge bg-warning text-dark" title="現在AIが記事を生成中です">⏳ 生成中</span>
+        {% elif article.status == 'error' %}
+          <span class="badge bg-danger" title="記事生成または投稿に失敗しました">❌ エラー</span>
         {% else %}
-          ❓ {{ article.status }}
+          <span class="badge bg-secondary">❓ {{ article.status }}</span>
         {% endif %}
       </td>
 
       <!-- スケジュール -->
-      <td>{{ article.scheduled_time.strftime('%Y-%m-%d %H:%M') }}</td>
+      <td>
+        {% if article.scheduled_time %}
+          📅 {{ article.scheduled_time.strftime('%Y-%m-%d') }}<br>
+          🕒 {{ article.scheduled_time.strftime('%H:%M') }}
+        {% else %}
+          <span class="text-muted">未設定</span>
+        {% endif %}
+      </td>
 
-      <!-- 操作ボタン -->
+      <!-- ログ情報 -->
+      <td>
+        {% set latest_log = article.post_logs|last %}
+        {% if latest_log %}
+          <details>
+            <summary>
+              {{ latest_log.status }}（{{ latest_log.timestamp.strftime('%Y-%m-%d %H:%M') }})
+            </summary>
+            <pre style="white-space: pre-wrap; font-size: 12px; max-width: 400px;">
+{{ latest_log.response_message }}
+            </pre>
+          </details>
+        {% else %}
+          <span class="text-muted">（ログなし）</span>
+        {% endif %}
+      </td>
+
+      <!-- 操作 -->
       <td>
         {% if article.status in ['scheduled', 'posted'] %}
-          <a href="{{ url_for('preview_article', article_id=article.id) }}" class="btn btn-outline-primary btn-sm">プレビュー</a>
+          <a href="{{ url_for('preview_article', article_id=article.id) }}"
+             class="btn btn-outline-primary btn-sm">プレビュー</a>
+
           {% if article.status == "scheduled" %}
-            <a href="{{ url_for('edit_article', article_id=article.id) }}" class="btn btn-outline-secondary btn-sm">編集</a>
+            <a href="{{ url_for('edit_article', article_id=article.id) }}"
+               class="btn btn-outline-secondary btn-sm">編集</a>
           {% endif %}
+        {% elif article.status == 'error' %}
+          <a href="{{ url_for('generate_article', site_id=article.site.id, keyword=article.keyword) }}"
+             class="btn btn-sm btn-danger">🔁 再生成</a>
         {% else %}
           <span class="text-muted">－</span>
         {% endif %}

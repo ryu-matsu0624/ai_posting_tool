@@ -6,8 +6,15 @@
 
   {% for entry in site_data %}
   <div class="card mb-4">
-    <div class="card-header bg-primary text-white">
-      <strong>{{ entry.site.site_name }}</strong>（ジャンル：{{ entry.site.genre }}）
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+      <div>
+        <strong>{{ entry.site.site_name }}</strong>（ジャンル：{{ entry.site.genre }}）
+      </div>
+      <!-- 🔴 削除ボタン -->
+      <form method="POST" action="{{ url_for('delete_site', site_id=entry.site.id) }}" onsubmit="return confirm('本当にこのサイトを削除しますか？');">
+        {{ csrf_token() }}
+        <button type="submit" class="btn btn-sm btn-danger">🗑 サイト削除</button>
+      </form>
     </div>
     <div class="card-body">
       <p>🌐 URL：<a href="{{ entry.site.url }}" target="_blank">{{ entry.site.url }}</a></p>
