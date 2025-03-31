@@ -26,12 +26,16 @@ def process_article(site_id, kw):
         title = generate_title_prompt(kw.keyword)
         if not title:
             print(f"⚠️ [{kw.keyword}] タイトル生成失敗")
+            article.status = "error"
+            db.session.commit()
             return
 
-        # コンテンツ生成
+        # 本文生成
         content = generate_content_prompt(title)
         if not content:
             print(f"⚠️ [{kw.keyword}] 本文生成失敗")
+            article.status = "error"
+            db.session.commit()
             return
 
         # 本文に画像挿入
@@ -45,6 +49,8 @@ def process_article(site_id, kw):
         # 最終チェック
         if not all([title, content_with_images]):
             print(f"⚠️ [{kw.keyword}] 最終チェック失敗（title/contentなし）")
+            article.status = "error"
+            db.session.commit()
             return
 
         # DB更新
@@ -60,17 +66,27 @@ def process_article(site_id, kw):
         db.session.rollback()
         print(f"❌ [{kw.keyword}] 例外エラー発生: {e}")
         traceback.print_exc()
+        try:
+            article.status = "error"
+            db.session.commit()
+        except:
+            print(f"⚠️ [{kw.keyword}] DB更新も失敗")
 
 def generate_articles_for_site(site):
     from app import app
 
     def _task():
-        with app.app_context():
-            keywords = Keyword.query.filter_by(site_id=site.id).all()
+        try:
+            with app.app_context():
+                keywords = Keyword.query.filter_by(site_id=site.id).all()
 
-            # 並列処理で複数記事を同時生成
-            with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-                for kw in keywords:
-                    executor.submit(process_article, site.id, kw)
+                # 並列処理で複数記事を同時生成
+                with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+                    for kw in keywords:
+                        executor.submit(process_article, site.id, kw)
+        except Exception as e:
+            print("❌ generate_articles_for_site() 全体で例外:", e)
+            traceback.print_exc()
 
+    # スレッドで非同期実行
     threading.Thread(target=_task).start()
