@@ -9,7 +9,8 @@
     {% for site in sites %}
       <li class="list-group-item">
         <strong>{{ site.site_name }}</strong>（{{ site.genre }}）
-        - <a href="{{ url_for('site_list') }}" class="btn btn-sm btn-primary ms-3">📄 サイト詳細</a>
+        <!-- サイト別の投稿一覧ページへ遷移 -->
+        <a href="{{ url_for('preview_list', site_id=site.id) }}" class="btn btn-sm btn-primary ms-3">📄 投稿一覧</a>
       </li>
     {% endfor %}
   </ul>
