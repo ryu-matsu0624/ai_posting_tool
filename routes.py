@@ -1,43 +1,17 @@
 from flask import render_template, redirect, url_for, request, flash
-from flask_login import login_user, login_required, logout_user, current_user
+from flask_login import login_user, login_required, logout_user, current_user, LoginManager
 from werkzeug.security import check_password_hash
-from app_init import app  # ← app.py ではなく app_init.py からインポート
+from app_init import app  # 🔁 app_init.py からインポート
 from models import db, User, WordPressSite, Keyword, Article, PostLog
 from forms import SignupForm, LoginForm, SiteRegisterForm, EditArticleForm
 from keywords import generate_keywords_from_genre, generate_title_prompt, generate_content_prompt, insert_images_into_content, generate_image_prompt, search_pixabay_images
 from article_generator import generate_articles_for_site, generate_scheduled_times
 from wordpress_client import post_to_wordpress_rest
-from flask_login import LoginManager
 
-# ログインマネージャーロード
+# 🔁 ログインマネージャーは app_init.py にて定義済み
 login_manager = LoginManager()
 login_manager.init_app(app)
-
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
-
-# 以降：signup, login, logout, dashboard, register_site, generate_article などすべてのルート
-# 今までのままでOK（app = Flask(__name__) は削除したので循環参照が起きない）
-
-# 例：ログインページ
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    form = LoginForm()
-    if form.validate_on_submit():
-        user = User.query.filter_by(email=form.email.data).first()
-        if user and user.check_password(form.password.data):
-            login_user(user, remember=True)
-            flash('ログイン成功', 'success')
-            return redirect(url_for('dashboard'))
-        flash('メールアドレスまたはパスワードが違います', 'danger')
-    return render_template('login.html', form=form)
-
-# 残りのルートは現状のコードのまま（例：register_site, dashboard, post_logs, calendar など）
-
-
-# ログインマネージャーの初期化
-login_manager = LoginManager()
+login_manager.login_view = "login"
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -173,7 +147,6 @@ def generate_article(site_id, keyword):
         image_results = search_pixabay_images(image_prompt)
         featured_image_url = image_results[0] if image_results else None
 
-        # 投稿
         response = post_to_wordpress_rest(
             site_url=site.url,
             username=site.wp_username,
@@ -183,43 +156,27 @@ def generate_article(site_id, keyword):
             featured_image_url=featured_image_url
         )
 
-        # 成功時
         if response and response.status_code == 201:
             article.title = title
             article.content = content_with_images
             article.image_prompt = featured_image_url
             article.status = 'posted'
-            db.session.add(PostLog(
-                article_id=article.id,
-                status="成功",
-                response_message=response.text
-            ))
+            db.session.add(PostLog(article_id=article.id, status="成功", response_message=response.text))
             db.session.commit()
             flash("✅ WordPressに投稿完了", "success")
-
-        # 失敗時
         else:
             article.status = 'error'
-            db.session.add(PostLog(
-                article_id=article.id,
-                status="失敗",
-                response_message=response.text if response else "レスポンスなし"
-            ))
+            db.session.add(PostLog(article_id=article.id, status="失敗", response_message=response.text if response else "レスポンスなし"))
             db.session.commit()
             flash("❌ WordPressへの投稿失敗", "danger")
 
     except Exception as e:
         article.status = 'error'
-        db.session.add(PostLog(
-            article_id=article.id,
-            status="失敗",
-            response_message=f"例外: {str(e)}"
-        ))
+        db.session.add(PostLog(article_id=article.id, status="失敗", response_message=f"例外: {str(e)}"))
         db.session.commit()
         flash(f"❌ 投稿中に例外が発生しました: {e}", "danger")
 
     return redirect(url_for("post_complete", site_id=site.id))
-
 
 
 @app.route("/post_logs")
@@ -268,7 +225,6 @@ def edit_article(article_id):
     return render_template("article_edit.html", form=form)
 
 
-# ✅ サイト削除処理（関連する記事・キーワード・ログも削除）
 @app.route("/delete_site/<int:site_id>", methods=["POST"])
 @login_required
 def delete_site(site_id):
@@ -279,7 +235,6 @@ def delete_site(site_id):
         return redirect(url_for('dashboard'))
 
     try:
-        # 関連記事・キーワード・投稿ログ削除
         for article in site.articles:
             PostLog.query.filter_by(article_id=article.id).delete()
             db.session.delete(article)
