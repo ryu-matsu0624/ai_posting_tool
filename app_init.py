@@ -20,16 +20,19 @@ app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{db_path}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=3650)
 
+# ✅ DB初期化とマイグレーション
 db.init_app(app)
 migrate = Migrate(app, db)
 
+# ✅ ログインマネージャー設定
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"
 
+# ✅ ユーザー取得関数
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# app 定義の後にルート読み込み
+# ✅ ルート読み込み（app 定義後に）
 from routes import *
