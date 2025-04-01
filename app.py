@@ -36,11 +36,11 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 @app.route("/")
-def home():
+def index():
     return render_template("home.html")
 
 @app.route("/signup", methods=["GET", "POST"])
-def signup():
+def signup_view():
     form = SignupForm()
     if form.validate_on_submit():
         user = User(email=form.email.data, password=form.password.data)

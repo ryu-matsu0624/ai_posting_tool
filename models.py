@@ -53,6 +53,7 @@ class Article(db.Model):
     image_prompt = db.Column(db.String, nullable=False, default="")
     scheduled_time = db.Column(db.DateTime, nullable=False)
     status = db.Column(db.String(50), default='pending')  # scheduled / posted / pending / error
+    retry_count = db.Column(db.Integer, default=0)  # 🔁 投稿リトライ回数（新規追加）
     site_id = db.Column(db.Integer, db.ForeignKey("word_press_site.id"), nullable=False)
 
     # ✅ 投稿ログ（時系列順で取得可能）
@@ -73,3 +74,5 @@ class PostLog(db.Model):
     status = db.Column(db.String(50), nullable=False)  # 成功 / 失敗
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     response_message = db.Column(db.Text)
+
+retry_count = db.Column(db.Integer, default=0)
