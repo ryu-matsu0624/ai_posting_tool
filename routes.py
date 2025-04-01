@@ -1,14 +1,14 @@
 from flask import render_template, redirect, url_for, request, flash
 from flask_login import login_user, login_required, logout_user, current_user, LoginManager
 from werkzeug.security import check_password_hash
-from app_init import app  # 🔁 app_init.py からインポート
+from app_init import app
 from models import db, User, WordPressSite, Keyword, Article, PostLog
 from forms import SignupForm, LoginForm, SiteRegisterForm, EditArticleForm
 from keywords import generate_keywords_from_genre, generate_title_prompt, generate_content_prompt, insert_images_into_content, generate_image_prompt, search_pixabay_images
 from article_generator import generate_articles_for_site, generate_scheduled_times
 from wordpress_client import post_to_wordpress_rest
 
-# 🔁 ログインマネージャーは app_init.py にて定義済み
+# ログインマネージャー
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"
@@ -16,7 +16,6 @@ login_manager.login_view = "login"
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
-
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -30,7 +29,6 @@ def signup():
         return redirect(url_for('login'))
     return render_template('signup.html', form=form)
 
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     form = LoginForm()
@@ -43,20 +41,17 @@ def login():
         flash('メールアドレスまたはパスワードが違います', 'danger')
     return render_template('login.html', form=form)
 
-
 @app.route('/logout')
 @login_required
 def logout():
     logout_user()
     return redirect(url_for('login'))
 
-
 @app.route('/dashboard')
 @login_required
 def dashboard():
     sites = WordPressSite.query.filter_by(user_id=current_user.id).all()
     return render_template('dashboard.html', sites=sites)
-
 
 @app.route("/register_site", methods=["GET", "POST"])
 @login_required
@@ -95,14 +90,12 @@ def register_site():
         return redirect(url_for("post_logs"))
     return render_template("register_site.html", form=form)
 
-
 @app.route("/post_complete/<int:site_id>")
 @login_required
 def post_complete(site_id):
     site = WordPressSite.query.get(site_id)
     articles = Article.query.filter_by(site_id=site.id).all()
     return render_template("post_complete.html", site=site, articles=articles)
-
 
 @app.route("/site_list")
 @login_required
@@ -128,7 +121,6 @@ def site_list():
             "total_count": total_count
         })
     return render_template("site_list.html", site_data=site_data)
-
 
 @app.route("/generate_article/<int:site_id>/<keyword>")
 @login_required
@@ -178,7 +170,6 @@ def generate_article(site_id, keyword):
 
     return redirect(url_for("post_complete", site_id=site.id))
 
-
 @app.route("/post_logs")
 @login_required
 def post_logs():
@@ -193,7 +184,6 @@ def post_logs():
     }
 
     return render_template("post_logs.html", articles=articles, status_emojis=status_emojis)
-
 
 @app.route("/calendar")
 @login_required
@@ -210,7 +200,6 @@ def calendar():
         })
     return render_template("calendar.html", events=events)
 
-
 @app.route("/edit_article/<int:article_id>", methods=["GET", "POST"])
 @login_required
 def edit_article(article_id):
@@ -224,6 +213,11 @@ def edit_article(article_id):
         return redirect(url_for("preview_article", article_id=article.id))
     return render_template("article_edit.html", form=form)
 
+@app.route("/preview_article/<int:article_id>")
+@login_required
+def preview_article(article_id):
+    article = Article.query.get_or_404(article_id)
+    return render_template("article_preview.html", article=article)
 
 @app.route("/delete_site/<int:site_id>", methods=["POST"])
 @login_required
